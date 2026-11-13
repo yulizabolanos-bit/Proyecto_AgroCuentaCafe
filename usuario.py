@@ -1,7 +1,7 @@
 
 class Usuario:
     #atributo
-    def __init__(self, nombre, clave, cedula = None):
+    def __init__(self, nombre, clave="coffee", cedula = None):
         self.nombre = nombre
         self._cedula = cedula #atributo protejido
         self.__clave = clave # atributo privado, no puede ser cambiada desde afuera
