@@ -29,27 +29,26 @@ class InterfazPrincipal:
         numero = float(valor)
         return int(numero) if numero.is_integer() else numero
 
-
     def crear_barra_menu(self):
         barra_menu = tk.Menu(self.ventana_base)
         self.ventana_base.config(menu=barra_menu)
 
         menu_archivo = tk.Menu(barra_menu, tearoff=0)
-        menu_archivo.add_command(label="Abrir Excel desde mi computador...", command=self.abrir_archivo_excel)
-        menu_archivo.add_command(label="Guardar Excel en mi computador...", command=self.guardar_excel_como)
+        menu_archivo.add_command(label="Guardar copia de respaldo en mi PC...", command=self.guardar_excel_como)
+        menu_archivo.add_command(label="Cargar otro archivo Excel...", command=self.abrir_archivo_excel)
         menu_archivo.add_separator()
-        menu_archivo.add_command(label="Salir del Sistema", command=self.ventana_base.quit)
+        menu_archivo.add_command(label="Salir", command=self.ventana_base.quit)
 
-        menu_operaciones = tk.Menu(barra_menu, tearoff=0)
-        menu_operaciones.add_command(label="Ir a Registro de Gastos", command=lambda: self.cuaderno_pestanas.select(0))
-        menu_operaciones.add_command(label="Ir a Registro de Ingresos", command=lambda: self.cuaderno_pestanas.select(1))
+        menu_registrar = tk.Menu(barra_menu, tearoff=0)
+        menu_registrar.add_command(label="Gastos y Mano de Obra", command=lambda: self.cuaderno_pestanas.select(0))
+        menu_registrar.add_command(label="Ventas de Café (Ingresos)", command=lambda: self.cuaderno_pestanas.select(1))
 
-        menu_reportes = tk.Menu(barra_menu, tearoff=0)
-        menu_reportes.add_command(label="Ver Balance y Ganancias/Pérdidas", command=self.abrir_ventana_reportes)
+        menu_ver = tk.Menu(barra_menu, tearoff=0)
+        menu_ver.add_command(label="Ver Balance y Ganancias / Pérdidas", command=self.abrir_ventana_reportes)
 
         barra_menu.add_cascade(label="Archivo", menu=menu_archivo)
-        barra_menu.add_cascade(label="Operaciones", menu=menu_operaciones)
-        barra_menu.add_cascade(label="Reportes y Balance", menu=menu_reportes)
+        barra_menu.add_cascade(label="Registrar", menu=menu_registrar)
+        barra_menu.add_cascade(label="Ver Reportes", menu=menu_ver)
 
     def abrir_archivo_excel(self):
         ruta = filedialog.askopenfilename(
@@ -263,10 +262,17 @@ class InterfazPrincipal:
                     self.gestor_excel.guardar_fila("Trabajadores", [trabajador_actual.nombre])
 
                 observacion = self.caja_desc_gasto.get().strip()
+                if observacion and not self.validar_solo_letras(observacion):
+                    messagebox.showerror("Labor inválida",
+                                     "El nombre de la labor u observación solo debe contener letras (no se permiten números).")
+                    return
+
                 if self.tipo_labor_var.get() == "recoleccion":
                     trabajador_actual.registrar_pesaje(fecha, cantidad)
-                    self.gestor_excel.guardar_fila("Pesaje", [trabajador_actual.nombre, fecha, self.formatear_numero(cantidad)])
-                    descripcion = f"Recolección café - {trabajador_actual.nombre}" + (f" ({observacion})" if observacion else "")
+                    self.gestor_excel.guardar_fila("Pesaje",
+                                               [trabajador_actual.nombre, fecha, self.formatear_numero(cantidad)])
+                    descripcion = f"Recolección café - {trabajador_actual.nombre}" + (
+                    f" ({observacion})" if observacion else "")
                 else:
                     labor = observacion or "Jornal general"
                     descripcion = f"{labor} - {trabajador_actual.nombre}"
@@ -364,15 +370,16 @@ class InterfazPrincipal:
         if not seleccion:
             messagebox.showwarning("Sin selección", "Selecciona una fila de la tabla para eliminar.")
             return
-        indice = self.tabla_gastos.index(seleccion[0])
+        valores = self.tabla_gastos.item(seleccion[0], "values")
         if messagebox.askyesno("Confirmar", "¿Deseas eliminar este gasto permanentemente?"):
             try:
-                self.gestor_excel.eliminar_fila_por_indice("Gastos", indice + 2)
+                self.gestor_excel.eliminar_gasto_y_pesaje_exacto(
+                    valores[0], valores[1], valores[2], valores[5]
+                )
                 self.recargar_memoria_y_tablas()
                 self.limpiar_formulario_gasto()
             except Exception as error:
                 messagebox.showerror("Error al eliminar", str(error))
-
     def limpiar_formulario_gasto(self):
         self.fila_gasto_seleccionada = None
         for item in self.tabla_gastos.selection():

@@ -7,6 +7,19 @@ class GestorExcel:
         self.archivo = nombre_archivo
         self.inicializar_excel()
 
+    def verificar_excel_cerrado(self):
+        """Comprueba si Microsoft Excel tiene el archivo abierto usando solo open() nativo."""
+        try:
+            archivo_prueba = open(self.archivo, "a")
+            archivo_prueba.close()
+        except FileNotFoundError:
+            pass
+        except PermissionError:
+            raise PermissionError(
+                "¡ATENCIÓN! El archivo Excel está abierto en este momento.\n\n"
+                "Por favor cierra Microsoft Excel primero y vuelve a intentarlo para que tus cambios se guarden."
+            )
+
     def inicializar_excel(self):
         try:
             libro = load_workbook(self.archivo)
@@ -49,6 +62,7 @@ class GestorExcel:
             libro.close()
 
     def guardar_fila(self, nombre_hoja, datos_fila):
+        self.verificar_excel_cerrado()
         try:
             libro = load_workbook(self.archivo)
             if nombre_hoja not in libro.sheetnames:
@@ -56,7 +70,6 @@ class GestorExcel:
                 raise ValueError(f"La hoja '{nombre_hoja}' no existe en el archivo Excel.")
             hoja = libro[nombre_hoja]
 
-            # Buscar la verdadera última fila con datos para evitar saltos o sobrescrituras
             ultima_fila_real = 1
             for fila_idx in range(hoja.max_row, 1, -1):
                 if any(hoja.cell(row=fila_idx, column=col).value is not None for col in range(1, hoja.max_column + 1)):
@@ -81,7 +94,6 @@ class GestorExcel:
             hoja = libro[nombre_hoja]
             filas = []
             for fila in hoja.iter_rows(min_row=2, values_only=True):
-                # Ignorar filas completamente vacías para no desfasar índices
                 if fila and any(celda is not None for celda in fila):
                     filas.append(list(fila))
             libro.close()
@@ -90,6 +102,7 @@ class GestorExcel:
             raise RuntimeError(f"Error al leer Excel: {e}")
 
     def actualizar_fila_por_indice(self, nombre_hoja, numero_fila_excel, nuevos_datos):
+        self.verificar_excel_cerrado()
         try:
             libro = load_workbook(self.archivo)
             hoja = libro[nombre_hoja]
@@ -101,6 +114,7 @@ class GestorExcel:
             raise PermissionError("El archivo Excel está abierto. Ciérralo antes de modificar datos.")
 
     def eliminar_fila_por_indice(self, nombre_hoja, num_fila_excel):
+        self.verificar_excel_cerrado()
         try:
             libro = load_workbook(self.archivo)
             hoja = libro[nombre_hoja]
@@ -110,9 +124,40 @@ class GestorExcel:
         except PermissionError:
             raise PermissionError("El archivo Excel está abierto. Ciérralo antes de eliminar datos.")
 
-    def actualizar_hoja_balance(self, fila_balance):
-        """Mantiene siempre actualizado el resumen general en la fila 2 de la hoja Balance."""
+    def eliminar_gasto_y_pesaje_exacto(self, fecha, descripcion, cantidad, categoria):
+        self.verificar_excel_cerrado()
         try:
+            libro = load_workbook(self.archivo)
+
+            if "Gastos" in libro.sheetnames:
+                hoja_gastos = libro["Gastos"]
+                for fila_idx in range(hoja_gastos.max_row, 1, -1):
+                    f_celda = str(hoja_gastos.cell(row=fila_idx, column=1).value or "").strip()
+                    d_celda = str(hoja_gastos.cell(row=fila_idx, column=2).value or "").strip()
+                    c_celda = str(hoja_gastos.cell(row=fila_idx, column=3).value or "").strip()
+                    if f_celda == str(fecha).strip() and d_celda == str(descripcion).strip() and c_celda == str(cantidad).strip():
+                        hoja_gastos.delete_rows(fila_idx, 1)
+                        break
+
+            if str(categoria).strip() == "Mano de obra" and " - " in str(descripcion) and "Pesaje" in libro.sheetnames:
+                nombre_trab = str(descripcion).split(" - ")[1].split(" (")[0].split("[PAGADO")[0].strip().lower()
+                hoja_pesaje = libro["Pesaje"]
+                for fila_idx in range(hoja_pesaje.max_row, 1, -1):
+                    nom_celda = str(hoja_pesaje.cell(row=fila_idx, column=1).value or "").strip().lower()
+                    fec_celda = str(hoja_pesaje.cell(row=fila_idx, column=2).value or "").strip()
+                    kil_celda = str(hoja_pesaje.cell(row=fila_idx, column=3).value or "").strip()
+                    if nom_celda == nombre_trab and fec_celda == str(fecha).strip() and kil_celda == str(cantidad).strip():
+                        hoja_pesaje.delete_rows(fila_idx, 1)
+                        break
+
+            libro.save(self.archivo)
+            libro.close()
+        except PermissionError:
+            raise PermissionError("El archivo Excel está abierto. Ciérralo antes de eliminar datos.")
+
+    def actualizar_hoja_balance(self, fila_balance):
+        try:
+            self.verificar_excel_cerrado()
             libro = load_workbook(self.archivo)
             if "Balance" not in libro.sheetnames:
                 hoja = libro.create_sheet(title="Balance")
@@ -135,7 +180,5 @@ class GestorExcel:
             libro.close()
         except Exception as e:
             raise RuntimeError(f"No se pudo exportar el archivo: {e}")
-
-
 
 
