@@ -34,14 +34,15 @@ class InterfazPrincipal:
         self.ventana_base.config(menu=barra_menu)
 
         menu_archivo = tk.Menu(barra_menu, tearoff=0)
-        menu_archivo.add_command(label="Guardar copia de respaldo en mi PC...", command=self.guardar_excel_como)
-        menu_archivo.add_command(label="Cargar otro archivo Excel...", command=self.abrir_archivo_excel)
+        menu_archivo.add_command(label="Guardar archivo Excel nuevo en mi computador...", command=self.guardar_excel_como)
+        menu_archivo.add_command(label="Abrir mi archivo Excel existente...", command=self.abrir_archivo_excel)
         menu_archivo.add_separator()
         menu_archivo.add_command(label="Salir", command=self.ventana_base.quit)
 
         menu_registrar = tk.Menu(barra_menu, tearoff=0)
         menu_registrar.add_command(label="Gastos y Mano de Obra", command=lambda: self.cuaderno_pestanas.select(0))
-        menu_registrar.add_command(label="Ventas de Café (Ingresos)", command=lambda: self.cuaderno_pestanas.select(1))
+        menu_registrar.add_command(label="Ventas de Café (Ingresos)",
+                                   command=lambda: self.cuaderno_pestanas.select(1))
 
         menu_ver = tk.Menu(barra_menu, tearoff=0)
         menu_ver.add_command(label="Ver Balance y Ganancias / Pérdidas", command=self.abrir_ventana_reportes)
@@ -52,14 +53,19 @@ class InterfazPrincipal:
 
     def abrir_archivo_excel(self):
         ruta = filedialog.askopenfilename(
-            title="Seleccionar archivo Excel de AgroCuenta Café",
+            title="Seleccionar mi archivo Excel de AgroCuenta Café",
             filetypes=[("Archivos de Excel", "*.xlsx")]
         )
         if ruta:
             try:
                 self.gestor_excel.archivo = ruta
+                self.gestor_excel.verificar_excel_cerrado()
                 self.recargar_memoria_y_tablas()
-                messagebox.showinfo("Archivo cargado", f"Se cargaron los datos desde:\n{ruta}")
+                self.lbl_ruta_excel.config(text=f"Archivo activo: {self.gestor_excel.archivo}")
+                messagebox.showinfo("Archivo cargado", f"Conectado correctamente a:\n{ruta}")
+            except PermissionError as aviso:
+                self.lbl_ruta_excel.config(text=f"Archivo activo: {self.gestor_excel.archivo}")
+                messagebox.showwarning("Excel abierto", str(aviso))
             except Exception as error:
                 messagebox.showerror("Error al abrir", str(error))
 
@@ -73,7 +79,9 @@ class InterfazPrincipal:
             try:
                 self.gestor_excel.exportar_copia(ruta)
                 self.gestor_excel.archivo = ruta
-                messagebox.showinfo("Guardado", f"Archivo Excel guardado en:\n{ruta}")
+                self.lbl_ruta_excel.config(text=f"Archivo activo: {self.gestor_excel.archivo}")
+                messagebox.showinfo("Archivo vinculado",
+                                    f"Guardado y vinculado en:\n{ruta}\n\nAhora todos tus cambios se guardarán directamente aquí.")
             except Exception as error:
                 messagebox.showerror("Error al guardar", str(error))
 
@@ -100,6 +108,18 @@ class InterfazPrincipal:
             fg="white"
         ).pack(side="right")
 
+        barra_estado = tk.Frame(self.ventana_base, bg="#e8f5e9", pady=4, padx=15)
+        barra_estado.pack(fill="x")
+
+        self.lbl_ruta_excel = tk.Label(
+            barra_estado,
+            text=f"Archivo activo: {self.gestor_excel.archivo}",
+            font=("Arial", 9, "italic"),
+            bg="#e8f5e9",
+            fg="#1b5e20"
+        )
+        self.lbl_ruta_excel.pack(side="left")
+
         self.cuaderno_pestanas = ttk.Notebook(self.ventana_base)
         self.cuaderno_pestanas.pack(fill="both", expand=True, padx=12, pady=10)
 
@@ -111,7 +131,6 @@ class InterfazPrincipal:
 
         self.construir_pestana_gastos()
         self.construir_pestana_ingresos()
-
 
     def construir_pestana_gastos(self):
         marco_general = tk.LabelFrame(self.pestana_gastos, text="1. Tipo de Gasto y Fecha", padx=10, pady=8)
