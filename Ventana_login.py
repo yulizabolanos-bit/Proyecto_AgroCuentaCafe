@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
-from interfaz_principal import InterfazPrincipal
+from Interfaz_principal import InterfazPrincipal
 
 
 class VentanaLogin:

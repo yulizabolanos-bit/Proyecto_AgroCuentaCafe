@@ -1,35 +1,31 @@
-from openpyxl import Workbook # Para crear un libro
-from openpyxl import load_workbook #Abrir un libro que ya existe
+from openpyxl import Workbook  # Para crear un libro
+from openpyxl import load_workbook  # Abrir un libro que ya existe
+
 
 class GestorExcel:
-    def __init__(self, nombre_archivo = "Datos agrocuentacafe.xlsx"):
+    def __init__(self, nombre_archivo="Datos agrocuentacafe.xlsx"):
         self.archivo = nombre_archivo
-
-        self.inicializar_excel() #Metodo--> Asegura que el excel exista antes de intenatr leer o guardar algo
+        self.inicializar_excel()  # Asegura que el excel exista antes de intentar leer o guardar algo
 
     def inicializar_excel(self):
-
-        try: #Inicia un bloque protegido
+        try:
             libro = load_workbook(self.archivo)
-
             libro.close()
-
         except FileNotFoundError:
-
             libro = Workbook()
 
             hoja_trabajadores = libro.active
             hoja_trabajadores.title = "Trabajadores"
-            hoja_trabajadores.append = (["Nombre"])
+            hoja_trabajadores.append(["Nombre"])
 
-            hoja_pesajes = libro.create_sheet(title = "Pesaje")
-            hoja_pesajes.append(["Nombre trabjador","Fecha","Kilos"])
+            hoja_pesajes = libro.create_sheet(title="Pesaje")
+            hoja_pesajes.append(["Nombre trabajador", "Fecha", "Kilos"])
 
-            hoja_gastos = libro.create_sheet(title = "Gastos")
-            hoja_gastos.append(["Fecha","Descripcion","Cantidad","Unidad_medida(kilos, bulto, etc)","Valor_unidad", "Categoria"])
+            hoja_gastos = libro.create_sheet(title="Gastos")
+            hoja_gastos.append(["Fecha", "Descripcion", "Cantidad", "Unidad_medida", "Valor_unidad", "Categoria", "Total"])
 
-            hoja_ingreso = libro.create_sheet(title = "Ingreso")
-            hoja_ingreso.append(["Ingreso"])
+            hoja_ingreso = libro.create_sheet(title="Ingreso")
+            hoja_ingreso.append(["Fecha", "Descripcion", "Cantidad", "Unidad_medida", "Valor_unidad", "Comprador", "Total"])
 
             libro.save(self.archivo)
 

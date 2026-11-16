@@ -1,134 +1,206 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox
 
 
 class VentanaReportes:
     def __init__(self, ventana_padre, mi_cosecha, registro_trabajadores, gestor_excel):
         self.ventana = tk.Toplevel(ventana_padre)
-        self.ventana.title("Balance y Reportes - AgroCuenta Café")
-        self.ventana.geometry("680x500")
+        self.ventana.title("Balance Financiero y Liquidación de Trabajadores - AgroCuenta Café")
+        self.ventana.geometry("760x620")
         self.ventana.resizable(False, False)
 
         self.mi_cosecha = mi_cosecha
         self.registro_trabajadores = registro_trabajadores
         self.gestor_excel = gestor_excel
 
-        self.crear_widgets()
-        self.actualizar_balance()
+        self.crear_elementos_pantalla()
+        self.consultar_balance_total()
 
-    def crear_widgets(self):
-        # --- SECCIÓN 1: Balance General de la Cosecha ---
-        frame_balance = tk.LabelFrame(self.ventana, text=f"Resumen de Cosecha: {self.mi_cosecha.descripcion}", padx=10, pady=10)
-        frame_balance.pack(fill="x", padx=15, pady=10)
+    def crear_elementos_pantalla(self):
+        # --- SECCIÓN 1: Filtro por Rango de Fechas ---
+        marco_fechas = tk.LabelFrame(self.ventana, text=f"Consultar Balance de: {self.mi_cosecha.descripcion}", padx=10, pady=8)
+        marco_fechas.pack(fill="x", padx=15, pady=(10, 5))
 
-        self.lbl_ingresos = tk.Label(frame_balance, text="Total Ingresos: $0", font=("Arial", 10, "bold"), fg="green")
-        self.lbl_ingresos.pack(side="left", padx=15)
+        tk.Label(marco_fechas, text="Desde (AAAA-MM-DD):").pack(side="left", padx=5)
+        self.caja_fecha_inicio = tk.Entry(marco_fechas, width=13)
+        self.caja_fecha_inicio.insert(0, "2026-01-01")
+        self.caja_fecha_inicio.pack(side="left", padx=5)
 
-        self.lbl_gastos = tk.Label(frame_balance, text="Total Gastos: $0", font=("Arial", 10, "bold"), fg="red")
-        self.lbl_gastos.pack(side="left", padx=15)
+        tk.Label(marco_fechas, text="Hasta (AAAA-MM-DD):").pack(side="left", padx=5)
+        self.caja_fecha_fin = tk.Entry(marco_fechas, width=13)
+        self.caja_fecha_fin.insert(0, "2026-12-31")
+        self.caja_fecha_fin.pack(side="left", padx=5)
 
-        self.lbl_balance = tk.Label(frame_balance, text="Balance Actual: $0", font=("Arial", 11, "bold"))
-        self.lbl_balance.pack(side="right", padx=15)
+        tk.Button(marco_fechas, text="Consultar Fechas", bg="#1565c0", fg="white", command=self.consultar_por_fechas).pack(side="left", padx=8)
+        tk.Button(marco_fechas, text="Ver Toda la Cosecha", command=self.consultar_balance_total).pack(side="left", padx=4)
 
-        # --- SECCIÓN 2: Buscador de Trabajador y Pesajes ---
-        frame_busqueda = tk.LabelFrame(self.ventana, text="Consultar Pesajes por Trabajador", padx=10, pady=10)
-        frame_busqueda.pack(fill="both", expand=True, padx=15, pady=5)
+        # --- SECCIÓN 2: Resultado Financiero (Inversión, Ventas, Ganancia o Pérdida) ---
+        marco_resultado = tk.LabelFrame(self.ventana, text="Resultado Financiero de la Finca", padx=12, pady=10)
+        marco_resultado.pack(fill="x", padx=15, pady=5)
 
-        fila_buscar = tk.Frame(frame_busqueda)
+        self.texto_diagnostico = tk.Text(marco_resultado, height=7, font=("Arial", 10), bg="#f9fbe7", relief="flat", wrap="word")
+        self.texto_diagnostico.pack(fill="x")
+        self.texto_diagnostico.config(state="disabled")
+
+        # --- SECCIÓN 3: Buscador y Liquidación de Trabajadores ---
+        marco_busqueda = tk.LabelFrame(self.ventana, text="Liquidación de Trabajadores (Kilos, Jornales y Pago Total)", padx=10, pady=8)
+        marco_busqueda.pack(fill="both", expand=True, padx=15, pady=5)
+
+        fila_buscar = tk.Frame(marco_busqueda)
         fila_buscar.pack(fill="x", pady=5)
 
         tk.Label(fila_buscar, text="Nombre del trabajador:").pack(side="left", padx=5)
-        self.entry_buscar = tk.Entry(fila_buscar, width=25)
-        self.entry_buscar.pack(side="left", padx=5)
-        self.entry_buscar.bind("<Return>", lambda event: self.buscar_trabajador())
+        self.caja_buscar = tk.Entry(fila_buscar, width=25)
+        self.caja_buscar.pack(side="left", padx=5)
+        self.caja_buscar.bind("<Return>", lambda evento: self.buscar_trabajador())
 
-        btn_buscar = tk.Button(fila_buscar, text="Buscar", command=self.buscar_trabajador)
-        btn_buscar.pack(side="left", padx=5)
+        tk.Button(fila_buscar, text="Buscar y Liquidar", bg="#2e7d32", fg="white", command=self.buscar_trabajador).pack(side="left", padx=5)
+        tk.Button(fila_buscar, text="Ver Todos los Registros", command=self.cargar_todos_trabajos).pack(side="left", padx=5)
 
-        btn_todos = tk.Button(fila_buscar, text="Ver Todos los Pesajes", command=self.cargar_todos_pesajes)
-        btn_todos.pack(side="left", padx=5)
-
-        # Tabla Treeview para mostrar pesajes
-        columnas = ("trabajador", "fecha", "kilos")
-        self.tabla_pesajes = ttk.Treeview(frame_busqueda, columns=columnas, show="headings", height=8)
-        self.tabla_pesajes.heading("trabajador", text="Trabajador")
+        columnas = ("fecha", "detalle", "cantidad", "unidad", "valor_unit", "total_pagar")
+        self.tabla_pesajes = ttk.Treeview(marco_busqueda, columns=columnas, show="headings", height=6)
         self.tabla_pesajes.heading("fecha", text="Fecha")
-        self.tabla_pesajes.heading("kilos", text="Kilos Recolectados")
+        self.tabla_pesajes.heading("detalle", text="Labor / Trabajador")
+        self.tabla_pesajes.heading("cantidad", text="Cantidad")
+        self.tabla_pesajes.heading("unidad", text="Unidad")
+        self.tabla_pesajes.heading("valor_unit", text="Valor Unit. ($)")
+        self.tabla_pesajes.heading("total_pagar", text="Subtotal ($)")
 
-        self.tabla_pesajes.column("trabajador", width=220)
-        self.tabla_pesajes.column("fecha", width=150, anchor="center")
-        self.tabla_pesajes.column("kilos", width=150, anchor="center")
+        self.tabla_pesajes.column("fecha", width=95, anchor="center")
+        self.tabla_pesajes.column("detalle", width=210)
+        self.tabla_pesajes.column("cantidad", width=80, anchor="center")
+        self.tabla_pesajes.column("unidad", width=70, anchor="center")
+        self.tabla_pesajes.column("valor_unit", width=105, anchor="center")
+        self.tabla_pesajes.column("total_pagar", width=110, anchor="center")
         self.tabla_pesajes.pack(fill="both", expand=True, pady=5)
 
-        self.lbl_total_kilos = tk.Label(frame_busqueda, text="Total kilos mostrados: 0 kg", font=("Arial", 9, "bold"))
-        self.lbl_total_kilos.pack(anchor="e")
+        self.lbl_resumen_trabajador = tk.Label(
+            marco_busqueda,
+            text="Total kilos recolectados: 0 kg   |   Total a pagar: $0",
+            font=("Arial", 10, "bold"),
+            fg="#1b5e20"
+        )
+        self.lbl_resumen_trabajador.pack(anchor="e", pady=2)
 
-        # --- SECCIÓN 3: Botón Exportar con filedialog ---
-        frame_acciones = tk.Frame(self.ventana, pady=10)
-        frame_acciones.pack(fill="x", padx=15)
+        # --- SECCIÓN 4: Cerrar ---
+        marco_acciones = tk.Frame(self.ventana, pady=6)
+        marco_acciones.pack(fill="x", padx=15)
 
-        btn_exportar = tk.Button(frame_acciones, text="Exportar Copia a Excel", bg="#2e7d32", fg="white", command=self.exportar_excel)
-        btn_exportar.pack(side="right", padx=5)
+        tk.Button(marco_acciones, text="Cerrar Ventana", command=self.ventana.destroy).pack(side="right", padx=5)
 
-        btn_cerrar = tk.Button(frame_acciones, text="Cerrar Ventana", command=self.ventana.destroy)
-        btn_cerrar.pack(side="left", padx=5)
+        self.cargar_todos_trabajos()
 
-        self.cargar_todos_pesajes()
+    def mostrar_diagnostico(self, datos, titulo_periodo):
+        invertido = datos["invertido"]
+        vendido = datos["vendido"]
+        kilos = datos["kilos_vendidos"]
+        balance = datos["balance"]
+        por_categoria = datos["por_categoria"]
 
-    def actualizar_balance(self):
-        ingresos = self.mi_cosecha.total_ingreso()
-        gastos = self.mi_cosecha.total_gasto()
-        balance = ingresos - gastos
+        desglose = ""
+        if por_categoria:
+            partes = [f"  • {cat}: ${monto:,.0f}" for cat, monto in por_categoria.items()]
+            desglose = "\nDetalle de lo que invertiste en tu finca:\n" + "\n".join(partes) + "\n"
 
-        self.lbl_ingresos.config(text=f"Total Ingresos: ${ingresos:,.0f}")
-        self.lbl_gastos.config(text=f"Total Gastos: ${gastos:,.0f}")
-        self.lbl_balance.config(text=f"Balance Actual: ${balance:,.0f}")
+        if balance > 0:
+            veredicto = f"RESULTADO: ¡Tuviste una GANANCIA de ${balance:,.0f}!"
+        elif balance < 0:
+            veredicto = f"RESULTADO: Tuviste una PÉRDIDA de ${abs(balance):,.0f}."
+        else:
+            veredicto = "RESULTADO: Estás en punto de equilibrio ($0 ganancia / $0 pérdida)."
 
-    def cargar_todos_pesajes(self):
+        mensaje = (
+            f"Periodo consultado: {titulo_periodo}\n"
+            f"• Café vendido: {kilos:,.1f} kg  |  Total ingresos por ventas: ${vendido:,.0f}\n"
+            f"• Total invertido / gastado en la finca: ${invertido:,.0f}\n"
+            f"{desglose}\n"
+            f"{veredicto}"
+        )
+
+        self.texto_diagnostico.config(state="normal")
+        self.texto_diagnostico.delete("1.0", tk.END)
+        self.texto_diagnostico.insert("1.0", mensaje)
+        self.texto_diagnostico.config(state="disabled")
+
+    def consultar_balance_total(self):
+        datos = self.mi_cosecha.generar_resumen_financiero()
+        self.mostrar_diagnostico(datos, f"Toda la cosecha ({self.mi_cosecha.descripcion})")
+
+    def consultar_por_fechas(self):
+        inicio = self.caja_fecha_inicio.get().strip()
+        fin = self.caja_fecha_fin.get().strip()
+        if not inicio or not fin:
+            messagebox.showwarning("Fechas requeridas", "Escribe ambas fechas en formato AAAA-MM-DD.", parent=self.ventana)
+            return
+        datos = self.mi_cosecha.generar_resumen_financiero(inicio, fin)
+        self.mostrar_diagnostico(datos, f"Desde {inicio} hasta {fin}")
+
+    def cargar_todos_trabajos(self):
         for item in self.tabla_pesajes.get_children():
             self.tabla_pesajes.delete(item)
 
-        filas = self.gestor_excel.leer_filas("Pesajes")
         total_kilos = 0
-        for fila in filas:
-            self.tabla_pesajes.insert("", "end", values=fila)
-            total_kilos += float(fila[2])
+        total_pago = 0
 
-        self.lbl_total_kilos.config(text=f"Total kilos mostrados: {total_kilos} kg")
+        for g in self.mi_cosecha.lista_gasto:
+            if g.categoria == "Mano de obra":
+                subtotal = g.calcular_total()
+                self.tabla_pesajes.insert("", "end", values=(
+                    g.fecha,
+                    g.descripcion,
+                    g.cantidad,
+                    g.unidad_medida,
+                    f"${g.valor_unidad:,.0f}",
+                    f"${subtotal:,.0f}"
+                ))
+                if str(g.unidad_medida).lower() == "kg":
+                    total_kilos += float(g.cantidad)
+                total_pago += subtotal
+
+        self.lbl_resumen_trabajador.config(
+            text=f"Todos los trabajadores -> Kilos recolectados: {total_kilos:,.1f} kg   |   Total Mano de Obra: ${total_pago:,.0f}"
+        )
 
     def buscar_trabajador(self):
-        nombre = self.entry_buscar.get().strip()
+        nombre = self.caja_buscar.get().strip()
         if not nombre:
-            messagebox.showwarning("Campo vacío", "Escribe el nombre del trabajador a buscar.", parent=self.ventana)
-            return
-
-        trabajador = self.registro_trabajadores.buscar_trabajador(nombre)
-        if trabajador is None:
-            messagebox.showinfo("Sin resultados", f"No se encontró al trabajador '{nombre}'.", parent=self.ventana)
+            messagebox.showwarning("Campo vacío", "Escribe el nombre de un trabajador para buscar.", parent=self.ventana)
             return
 
         for item in self.tabla_pesajes.get_children():
             self.tabla_pesajes.delete(item)
 
-        filas = self.gestor_excel.leer_filas("Pesajes")
         total_kilos = 0
-        for fila in filas:
-            if str(fila[0]).lower() == trabajador.nombre.lower():
-                self.tabla_pesajes.insert("", "end", values=fila)
-                total_kilos += float(fila[2])
+        total_dias = 0
+        total_pago = 0
+        encontrado = False
 
-        self.lbl_total_kilos.config(text=f"Total kilos de {trabajador.nombre}: {total_kilos} kg")
+        for g in self.mi_cosecha.lista_gasto:
+            if g.categoria == "Mano de obra" and " - " in str(g.descripcion):
+                trabajador_fila = str(g.descripcion).split(" - ")[1].split(" (")[0].strip().lower()
+                if trabajador_fila == nombre.lower():
+                    encontrado = True
+                    subtotal = g.calcular_total()
+                    self.tabla_pesajes.insert("", "end", values=(
+                        g.fecha,
+                        g.descripcion,
+                        g.cantidad,
+                        g.unidad_medida,
+                        f"${g.valor_unidad:,.0f}",
+                        f"${subtotal:,.0f}"
+                    ))
+                    if str(g.unidad_medida).lower() == "kg":
+                        total_kilos += float(g.cantidad)
+                    else:
+                        total_dias += float(g.cantidad)
+                    total_pago += subtotal
 
-    def exportar_excel(self):
-        ruta = filedialog.asksaveasfilename(
-            parent=self.ventana,
-            title="Guardar reporte de AgroCuenta Café",
-            defaultextension=".xlsx",
-            filetypes=[("Archivos de Excel", "*.xlsx")]
+        if not encontrado:
+            self.lbl_resumen_trabajador.config(text="Total kilos recolectados: 0 kg   |   Total a pagar: $0")
+            messagebox.showinfo("Sin resultados", f"No se encontraron registros para el trabajador '{nombre}'.", parent=self.ventana)
+            return
+
+        detalle_dias = f"  |  Jornales: {total_dias:,.1f} días" if total_dias > 0 else ""
+        self.lbl_resumen_trabajador.config(
+            text=f"Trabajador: {nombre.title()} -> Recolectó: {total_kilos:,.1f} kg{detalle_dias}   |   TOTAL A PAGAR: ${total_pago:,.0f}"
         )
-        if ruta:
-            try:
-                self.gestor_excel.exportar_copia(ruta)
-                messagebox.showinfo("Éxito", "Copia del archivo Excel exportada correctamente.", parent=self.ventana)
-            except Exception as e:
-                messagebox.showerror("Error al exportar", str(e), parent=self.ventana)
