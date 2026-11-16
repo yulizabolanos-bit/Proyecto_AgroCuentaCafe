@@ -8,7 +8,7 @@ from Ventana_login import VentanaLogin
 ventana_base = tk.Tk()
 
 gestor_excel = GestorExcel()
-usuario_autorizado = Usuario("Mabel Bolaños")
+usuario_autorizado = Usuario("Orfany Castillo")
 registro_trabajadores = RegistroTrabajador()
 mi_cosecha = Cosecha("Cosecha Principal 2026")
 

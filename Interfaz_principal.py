@@ -25,9 +25,11 @@ class InterfazPrincipal:
         self.crear_elementos_pantalla()
         self.cargar_datos_desde_excel()
 
-    # ==========================================================
-    # 1. MENÚ SUPERIOR (Archivo -> Abrir/Guardar Excel en PC)
-    # ==========================================================
+    def formatear_numero(self, valor):
+        numero = float(valor)
+        return int(numero) if numero.is_integer() else numero
+
+
     def crear_barra_menu(self):
         barra_menu = tk.Menu(self.ventana_base)
         self.ventana_base.config(menu=barra_menu)
@@ -79,9 +81,6 @@ class InterfazPrincipal:
     def abrir_ventana_reportes(self):
         VentanaReportes(self.ventana_base, self.mi_cosecha, self.registro_trabajadores, self.gestor_excel)
 
-    # ==========================================================
-    # 2. CONTENEDOR PRINCIPAL Y PESTAÑAS
-    # ==========================================================
     def crear_elementos_pantalla(self):
         encabezado = tk.Frame(self.ventana_base, bg="#2e7d32", pady=10, padx=15)
         encabezado.pack(fill="x")
@@ -114,9 +113,7 @@ class InterfazPrincipal:
         self.construir_pestana_gastos()
         self.construir_pestana_ingresos()
 
-    # ==========================================================
-    # 3. PESTAÑA 1: GASTOS (SEPARADA EN 3 CUADROS CLAROS)
-    # ==========================================================
+
     def construir_pestana_gastos(self):
         marco_general = tk.LabelFrame(self.pestana_gastos, text="1. Tipo de Gasto y Fecha", padx=10, pady=8)
         marco_general.pack(fill="x", pady=(0, 8))
@@ -268,7 +265,7 @@ class InterfazPrincipal:
                 observacion = self.caja_desc_gasto.get().strip()
                 if self.tipo_labor_var.get() == "recoleccion":
                     trabajador_actual.registrar_pesaje(fecha, cantidad)
-                    self.gestor_excel.guardar_fila("Pesaje", [trabajador_actual.nombre, fecha, cantidad])
+                    self.gestor_excel.guardar_fila("Pesaje", [trabajador_actual.nombre, fecha, self.formatear_numero(cantidad)])
                     descripcion = f"Recolección café - {trabajador_actual.nombre}" + (f" ({observacion})" if observacion else "")
                 else:
                     labor = observacion or "Jornal general"
@@ -282,7 +279,15 @@ class InterfazPrincipal:
             nuevo_gasto = Gasto(fecha, descripcion, cantidad, unidad_medida, valor_unidad, categoria)
             self.mi_cosecha.agregar_gasto(nuevo_gasto)
 
-            fila_excel = [fecha, descripcion, cantidad, unidad_medida, valor_unidad, categoria, nuevo_gasto.calcular_total()]
+            fila_excel = [
+                fecha,
+                descripcion,
+                self.formatear_numero(cantidad),
+                unidad_medida,
+                self.formatear_numero(valor_unidad),
+                categoria,
+                self.formatear_numero(nuevo_gasto.calcular_total())
+            ]
             self.gestor_excel.guardar_fila("Gastos", fila_excel)
             self.tabla_gastos.insert("", "end", values=fila_excel)
 
@@ -308,11 +313,11 @@ class InterfazPrincipal:
         self.caja_desc_gasto.delete(0, tk.END)
         self.caja_desc_gasto.insert(0, valores[1])
         self.caja_cant_gasto.delete(0, tk.END)
-        self.caja_cant_gasto.insert(0, valores[2])
+        self.caja_cant_gasto.insert(0, self.formatear_numero(valores[2]))
         self.caja_unidad_gasto.delete(0, tk.END)
         self.caja_unidad_gasto.insert(0, valores[3])
         self.caja_valor_gasto.delete(0, tk.END)
-        self.caja_valor_gasto.insert(0, valores[4])
+        self.caja_valor_gasto.insert(0, self.formatear_numero(valores[4]))
 
         if valores[5] == "Mano de obra" and " - " in str(valores[1]):
             nombre_extraido = str(valores[1]).split(" - ")[1].split(" (")[0]
@@ -338,7 +343,15 @@ class InterfazPrincipal:
                     return
 
             total = cantidad * valor
-            nuevos_datos = [fecha, descripcion, cantidad, unidad, valor, categoria, total]
+            nuevos_datos = [
+                fecha,
+                descripcion,
+                self.formatear_numero(cantidad),
+                unidad,
+                self.formatear_numero(valor),
+                categoria,
+                self.formatear_numero(total)
+            ]
             self.gestor_excel.actualizar_fila_por_indice("Gastos", self.fila_gasto_seleccionada + 2, nuevos_datos)
             self.recargar_memoria_y_tablas()
             self.limpiar_formulario_gasto()
@@ -438,7 +451,15 @@ class InterfazPrincipal:
             return
 
         self.mi_cosecha.agregar_ingreso(nuevo_ingreso)
-        fila_excel = [fecha, descripcion, kilos, "kg", precio, comprador, nuevo_ingreso.calcular_total()]
+        fila_excel = [
+            fecha,
+            descripcion,
+            self.formatear_numero(kilos),
+            "kg",
+            self.formatear_numero(precio),
+            comprador,
+            self.formatear_numero(nuevo_ingreso.calcular_total())
+        ]
         self.gestor_excel.guardar_fila("Ingreso", fila_excel)
         self.tabla_ingresos.insert("", "end", values=fila_excel)
 
@@ -485,13 +506,31 @@ class InterfazPrincipal:
             if fila and len(fila) >= 7:
                 gasto = Gasto(str(fila[0]), str(fila[1]), float(fila[2]), str(fila[3]), float(fila[4]), str(fila[5]))
                 self.mi_cosecha.agregar_gasto(gasto)
-                self.tabla_gastos.insert("", "end", values=fila)
+                fila_limpia = [
+                    fila[0],
+                    fila[1],
+                    self.formatear_numero(fila[2]),
+                    fila[3],
+                    self.formatear_numero(fila[4]),
+                    fila[5],
+                    self.formatear_numero(fila[6])
+                ]
+                self.tabla_gastos.insert("", "end", values=fila_limpia)
 
         for fila in self.gestor_excel.leer_filas("Ingreso"):
             if fila and len(fila) >= 7:
                 ingreso = Ingreso(str(fila[0]), str(fila[1]), float(fila[2]), str(fila[3]), float(fila[4]), str(fila[5]))
                 self.mi_cosecha.agregar_ingreso(ingreso)
-                self.tabla_ingresos.insert("", "end", values=fila)
+                fila_limpia = [
+                    fila[0],
+                    fila[1],
+                    self.formatear_numero(fila[2]),
+                    fila[3],
+                    self.formatear_numero(fila[4]),
+                    fila[5],
+                    self.formatear_numero(fila[6])
+                ]
+                self.tabla_ingresos.insert("", "end", values=fila_limpia)
 
     def recargar_memoria_y_tablas(self):
         self.mi_cosecha.lista_gasto.clear()
