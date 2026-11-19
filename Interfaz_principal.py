@@ -278,6 +278,13 @@ class InterfazPrincipal:
                 if trabajador_actual is None:
                     trabajador_actual = Trabajador(nombre_trabajador)
                     self.registro_trabajadores.agregar_trabajador(trabajador_actual)
+
+                nombres_en_excel = [
+                    str(fila[0]).strip().lower()
+                    for fila in self.gestor_excel.leer_filas("Trabajadores")
+                    if fila
+                ]
+                if trabajador_actual.nombre.strip().lower() not in nombres_en_excel:
                     self.gestor_excel.guardar_fila("Trabajadores", [trabajador_actual.nombre])
 
                 observacion = self.caja_desc_gasto.get().strip()
